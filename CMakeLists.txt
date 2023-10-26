@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   std_msgs
+  laser_geometry
 )
 
 ## System dependencies are found with CMake's conventions
@@ -103,10 +104,10 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES my_obstacle_avoidance_package
-#  CATKIN_DEPENDS roscpp sensor_msgs std_msgs
-#  DEPENDS system_lib
+  INCLUDE_DIRS include
+  LIBRARIES my_obstacle_avoidance_package
+  CATKIN_DEPENDS roscpp sensor_msgs std_msgs
+  DEPENDS system_lib
 )
 
 ###########
@@ -194,3 +195,5 @@ target_link_libraries(my_obstacle_avoidance_node
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+
+include_directories("/usr/include/eigen3")
