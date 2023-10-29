@@ -8,19 +8,27 @@
 #include "eigen_conversion.h"
 using namespace std;
 
+/*  INITIALIZE USEFUL VARIABLES  */
+
 float velocity_x = 0.0;
 float velocity_y = 0.0;
 float velocity_z = 0.0;
 
 const float MIN_DIST_ALLOWED = 0.8;
+const float STARTING_DIST = 10000; 
 
 geometry_msgs::Twist velocity_msg;
 geometry_msgs::Twist vel_updated;
+
+bool vel_detected = false;
 
 ros::Publisher vel_pub;
 
 void laserScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_msg)
 {
+  if (!vel_detected) return;
+  vel_detected = false;
+  
   laser_geometry::LaserProjection laser_projection;
   sensor_msgs::PointCloud point_cloud;
   tf::TransformListener transform_listener;
@@ -39,15 +47,37 @@ void laserScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_msg)
     ROS_ERROR("%s", exception.what());
     return;
   }
+
+  float force_x = 0.0;
+  float force_y = 0.0;
   
-  Eigen::Isometry2f transform_matrix = convertPose2D(stamped_transform);
+  float actual_obstacle_distance;
+  float obstacle_distance = STARTING_DIST;
+  
+  Eigen::Isometry2f transform_matrix = convertPose2D(stamped_transform);  
+  Eigen::Vector2f obstacle_pos, new_pos;
 
-  const std::vector<float>& ranges = scan_msg.ranges;
-  float min_distance = *std::min_element(ranges.begin(), ranges.end());
+  for(auto& point: point_cloud.points){
+    
+    new_pos(0) = point.x;
+    new_pos(1) = point.y;
+    
+    new_pos = transform_matrix * new_pos;
+    
+    actual_obstacle_distance = sqrt(pow(new_pos(0), 2) + pow(new_pos(1), 2));
+      
+    force_x += new_pos(0) / pow(actual_obstacle_distance, 2);
+    force_y += new_pos(1) / pow(actual_obstacle_distance, 2);
 
-  if(min_distance < MIN_DIST_ALLOWED){
+    if(actual_obstacle_distance < obstacle_distance){
+      obstacle_distance = actual_obstacle_distance;
+      obstacle_pos = new_pos;
+    }
+  }
 
-    cerr << "The minimum distance from the wall is " << min_distance << " meters" << endl;
+  if(obstacle_distance < MIN_DIST_ALLOWED){
+
+    cerr << "The minimum distance from the wall is " << obstacle_distance << " meters" << endl;
   	vel_updated.linear.x = 0.2;
   	vel_updated.linear.y = 0.2;
   	vel_updated.angular.z = 1.0;
@@ -55,20 +85,22 @@ void laserScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_msg)
   	vel_pub.publish(vel_updated);
   }
   else{
-  	cerr << "The distance is under control: " << min_distance << " meters" << endl;
+  	cerr << "The distance is under control: " << obstacle_distance << " meters" << endl;
     vel_pub.publish(velocity_msg);
   
   }
   
 }
 
-void velocityScanCallback(const geometry_msgs::Twist& vel_msg)
+void velocityScanCallback(const geometry_msgs::Twist::ConstPtr& vel_msg)
 {
-  velocity_msg = vel_msg;
+  vel_detected = true;
   
-  velocity_x = vel_msg.linear.x;
-  velocity_y = vel_msg.linear.y;
-  velocity_z = vel_msg.angular.z;
+  velocity_x = vel_msg->linear.x;
+  velocity_y = vel_msg->linear.y;
+  velocity_z = vel_msg->angular.z;
+  
+  velocity_msg = *vel_msg;
 
   cerr << "Actual velocity x= " << velocity_x << " , y= " << velocity_y << " , z= " << velocity_z << endl;
 }
