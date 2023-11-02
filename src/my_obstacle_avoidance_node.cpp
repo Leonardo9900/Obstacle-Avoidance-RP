@@ -14,9 +14,9 @@ float velocity_x = 0.0;
 float velocity_y = 0.0;
 float velocity_z = 0.0;
 
-const float MIN_DIST_ALLOWED = 0.8;
+const float MIN_DIST_ALLOWED = 0.7;
 const float STARTING_DIST = 10000;
-const float REGULATOR = 1 / 10000; 
+const float REGULATOR = 1 / 7000; 
 
 geometry_msgs::Twist velocity_msg;
 geometry_msgs::Twist vel_updated;
@@ -129,7 +129,7 @@ int main(int argc, char **argv)
   ros::NodeHandle n;
 
   ros::Subscriber laser_sub = n.subscribe("/base_scan", 10, laserScanCallback);
-  ros::Subscriber vel_sub = n.subscribe("/cmd_vel", 10, velocityScanCallback);
+  ros::Subscriber vel_sub = n.subscribe("/cmd_vel", 1, velocityScanCallback);
 
   vel_pub = n.advertise<geometry_msgs::Twist>("/cmd_vel", 10);
   
