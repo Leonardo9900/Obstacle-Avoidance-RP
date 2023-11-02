@@ -15,7 +15,8 @@ float velocity_y = 0.0;
 float velocity_z = 0.0;
 
 const float MIN_DIST_ALLOWED = 0.8;
-const float STARTING_DIST = 10000; 
+const float STARTING_DIST = 10000;
+const float REGULATOR = 1 / 10000; 
 
 geometry_msgs::Twist velocity_msg;
 geometry_msgs::Twist vel_updated;
@@ -23,6 +24,8 @@ geometry_msgs::Twist vel_updated;
 bool vel_detected = false;
 
 ros::Publisher vel_pub;
+
+/*DETECT THE DISTANCE FROM OBSTACLES USING THE LASER SCAN AND MODIFY THE VELOCITY COMMANDS TO AVOID COLLISIONS*/
 
 void laserScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_msg)
 {
@@ -75,22 +78,35 @@ void laserScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_msg)
     }
   }
 
-  if(obstacle_distance < MIN_DIST_ALLOWED){
+  if (obstacle_distance < MIN_DIST_ALLOWED){
 
-    cerr << "The minimum distance from the wall is " << obstacle_distance << " meters" << endl;
-  	vel_updated.linear.x = 0.2;
-  	vel_updated.linear.y = 0.2;
-  	vel_updated.angular.z = 1.0;
-  	
-  	vel_pub.publish(vel_updated);
+    cerr << "Too close to the obstacle: " << obstacle_distance << " meters" << endl;
+    
+    force_x = - force_x * REGULATOR;    
+    force_y = - force_y * REGULATOR;
+    
+    vel_updated.linear.x =  velocity_x + force_x;
+    vel_updated.linear.y =  velocity_y + force_y;
+    
+    if(obstacle_pos(1) > 0){
+      vel_updated.angular.z = -1 / pow(obstacle_distance, 2);
+    }
+    
+    else if (obstacle_pos(1) < 0){
+      vel_updated.angular.z = 1 / pow(obstacle_distance, 2);   
+    }
+   
+    vel_pub.publish(vel_updated);
   }
+	
   else{
-  	cerr << "The distance is under control: " << obstacle_distance << " meters" << endl;
+    cerr << "Robot in acceptable zone distance: " << obstacle_distance << " meters" << endl;
     vel_pub.publish(velocity_msg);
-  
   }
   
 }
+
+/*DETECT THE ACTUAL VELOCITY OF THE ROBOT ALONG X,Y,Z AXES*/
 
 void velocityScanCallback(const geometry_msgs::Twist::ConstPtr& vel_msg)
 {
